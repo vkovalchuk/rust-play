@@ -1,0 +1,39 @@
+Mounting this dir
+=================
+
+1. Use "Docker Quickstart Terminal"
+2. "$VBOX_MSI_INSTALL_PATH"/vboxmanage sharedfolder add default --name vkhome --hostpath "D:\Work\Future\Rust" --transient
+ (see "$VBOX_MSI_INSTALL_PATH"/vboxmanage showvminfo default | grep "Host path:")
+3. docker-machine ssh default
+4. mkdir /home/docker/vkhome
+   sudo mount -t vboxsf -o uid=1000,gid=50 vkhome /home/docker/vkhome
+   exit
+5. docker run --rm -v "/home/docker/vkhome:/root/rust" -it rust /bin/bash
+
+
+Explanation:
+* docker run --rm -v "/path-in-docker-machine!!!:/path-in-dockerized" ...
+* so create "/path-in-docker-machine" first
+* ...by mount -t vboxsf $OPTIONS SOME_VBOX_SHARED_FOLDER /path-in-docker-machine
+* using vboxmanage sharedfolder add VMname_is_default --name SOME_VBOX_SHARED_FOLDER ...
+
+Running the code
+================
+Naive attempt:
+--------------
+
+root@9f43c4a258de:~/rust# USER=root cargo init
+     Created binary (application) package
+root@9f43c4a258de:~/rust# cargo build --release
+   Compiling rust v0.1.0 (/root/rust)
+    Finished release [optimized] target(s) in 7.50s
+root@9f43c4a258de:~/rust# cargo build --release
+   Compiling rust v0.1.0 (/root/rust)
+    Finished release [optimized] target(s) in 1.29s
+root@9f43c4a258de:~/rust# target/release/rust
+(output)
+
+Proper
+------
+cd /root/rust
+rustc <file>.rs

@@ -1,0 +1,10 @@
+Motherboard,Memory
+Motherboard,CPU
+Motherboard,GPU
+Comp,Motherboard
+Comp,Monitor
+Monitor,Powercord
+CPU,GameReq
+Comp,Case
+Case,GPU
+Case,Motherboard
