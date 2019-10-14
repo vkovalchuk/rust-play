@@ -8,6 +8,7 @@ use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct Node(String);
+//type Node = Box<String>;
 
 impl Node {
     fn new(s: &str) -> Node {
@@ -23,6 +24,27 @@ impl fmt::Display for Node {
         write!(f, "{}", self.0)
     }
 }
+
+use std::time::SystemTime;
+
+static mut sys_time: Option<SystemTime> = None;
+
+fn ts() -> String {
+    use std::fmt::Write;
+    let mut secs: u128 = 0;
+
+    unsafe {
+    if sys_time.is_none() {
+        sys_time = Some(SystemTime::now());
+    }
+    secs = sys_time.unwrap().elapsed().unwrap().as_millis();
+    }
+    let mut result = String::new();
+    write!(&mut result, "{:06}", secs);
+        // "{:4}-{:02}-{:02} {:02}:{:02}:{:02}", t.year(), t.month(), t.day(), t.hour(), t.minute(), t.seconds());
+    result
+}
+
 
 #[derive(Debug, Clone, PartialEq)]
 struct Edge (Node, Node);
@@ -40,6 +62,7 @@ impl Graph {
 
         let fdata = File::open(&Path::new(&fname)).unwrap();
         let lines = io::BufReader::new(fdata).lines();
+        let mut i = 0;
         for ln_iter in lines {
             let mut ln = ln_iter.unwrap();
             if ! ln.starts_with('#') && ! ln.starts_with('%') {
@@ -50,6 +73,11 @@ impl Graph {
                 nodes.insert(from);
                 nodes.insert(to);
                 edges.push(e);
+
+                if i % 10000 == 0 {
+                    println!("{} Read line {}", ts(), i)
+                }
+                i += 1;
             }
         }
         Graph {
@@ -95,7 +123,7 @@ fn main() {
     // https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
 
     // O(n^2): G.nodes.iter().cloned().filter(|r| G.count_incoming_edges(r) == 0).collect();
-    println!("collect_nodes_without_incoming: {} edges, {} nodes", G.edges.len(), G.nodes.len());
+    println!("{} collect_nodes_without_incoming: {} edges, {} nodes", ts(), G.edges.len(), G.nodes.len());
     let mut S: HashSet<Node> = G.collect_nodes_without_incoming();
 
     if S.len() < 100 {
@@ -109,12 +137,12 @@ fn main() {
         S.remove(&n);
         L.push(n.clone());
 
-        println!("collect edges from {}", n);
+        println!("{} collect edges from {}", ts(), n);
         let from_n_to_m = G.collect_edges(|e: &Edge| e.0 == n);
         for e in from_n_to_m.iter() {
             let m = &e.1;
             G.remove_edge(e);
-            println!("count incomings to {}", m);
+            // println!("{} count incomings to {}", ts(), m);
             // m has no other incoming edges?
             if ! G.has_incoming_edges(m) { // G.count_incoming_edges(m) == 0
                 S.insert(m.clone());
@@ -126,6 +154,6 @@ fn main() {
         println!("ERROR: graph has at least one cycle");
         println!("Remains: {:?}", G.edges)
     } else {
-        println!("{:?}", L);
+        println!("{} {:?}", ts(), L);
     }
 }
