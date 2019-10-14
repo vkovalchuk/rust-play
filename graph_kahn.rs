@@ -1,16 +1,35 @@
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
+
 use std::collections::HashSet;
 use std::env;
+use std::fmt;
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+struct Node(String);
+
+impl Node {
+    fn new(s: &str) -> Node {
+        Node(String::from(s))
+    }
+}
+
+impl Into<String> for Node {
+    fn into(self) -> String { self.0 }
+}
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
-struct Edge (String, String);
+struct Edge (Node, Node);
 
 #[derive(Debug)]
 struct Graph {
-    nodes: HashSet<String>,
+    nodes: HashSet<Node>,
     edges: Vec<Edge>,
 }
 
@@ -24,12 +43,13 @@ impl Graph {
         for ln_iter in lines {
             let mut ln = ln_iter.unwrap();
             if ! ln.starts_with('#') && ! ln.starts_with('%') {
-                let mut pair = ln.split(|c| c == ',' || c == ' '); // : Vec<&str> ... .collect()
-                let (from, to) = (pair.next().unwrap().to_string(), pair.next().unwrap().to_string());
-                let e = Edge(from.clone(), to.clone());
-                edges.push(e);
+                let pair: Vec<&str> = ln.split(|c| c == ',' || c == ' ').collect();
+                let from = Node::new(pair[0]);
+                let to = Node::new(pair[1]); // (pair.next().unwrap().to_string(), pair.next().unwrap().to_string());
+                let e = Edge(from.clone(), to.clone()); // Edge(&from, &to);
                 nodes.insert(from);
                 nodes.insert(to);
+                edges.push(e);
             }
         }
         Graph {
@@ -42,7 +62,16 @@ impl Graph {
         self.edges.iter().cloned().filter(criteria).collect()
     }
 
-    fn count_incoming_edges(&self, n: &String) -> usize {
+    fn collect_nodes_without_incoming(&self) -> HashSet<Node> {
+        let nodes_with_incoming: HashSet<&Node> = self.edges.iter().map(|e| &e.1).collect();
+        self.nodes.iter().filter(|n| !nodes_with_incoming.contains(n)).cloned().collect()
+    }
+
+    fn has_incoming_edges(&self, n: &Node) -> bool {
+        self.edges.iter().any(|e| e.1 == *n)
+    }
+
+    fn count_incoming_edges(&self, n: &Node) -> usize {
         self.edges.iter().filter(|e| e.1 == *n).count()
         // println!("incoming edges for " + n + ":" + str(result))
     }
@@ -55,6 +84,7 @@ impl Graph {
 } // impl Graph
 
 
+
 #[allow(non_snake_case)]
 fn main() {
     let fname = env::args().skip(1).next().unwrap_or("graph1.data.csv".to_string());
@@ -63,8 +93,10 @@ fn main() {
     // println!("{:#?}", G);
 
     // https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
-    let mut S: HashSet<String> = G.nodes.iter().cloned().filter(|r| G.count_incoming_edges(r) == 0).collect();
 
+    // O(n^2): G.nodes.iter().cloned().filter(|r| G.count_incoming_edges(r) == 0).collect();
+    println!("collect_nodes_without_incoming: {} edges, {} nodes", G.edges.len(), G.nodes.len());
+    let mut S: HashSet<Node> = G.collect_nodes_without_incoming();
 
     if S.len() < 100 {
         println!("Set of all nodes with no incoming edge: {:?}", S);
@@ -72,16 +104,19 @@ fn main() {
         println!("Nodes with no incoming edge: {}", S.len());
     }
 
-    let mut L: Vec<String> = vec![];
+    let mut L: Vec<Node> = vec![];
     while let Some(n) = S.iter().cloned().next() {
         S.remove(&n);
-        L.push(n.to_string());
+        L.push(n.clone());
 
-        let from_n_to_m = G.collect_edges(|e: &Edge| e.0 == *n);
+        println!("collect edges from {}", n);
+        let from_n_to_m = G.collect_edges(|e: &Edge| e.0 == n);
         for e in from_n_to_m.iter() {
             let m = &e.1;
             G.remove_edge(e);
-            if G.count_incoming_edges(m) == 0 {
+            println!("count incomings to {}", m);
+            // m has no other incoming edges?
+            if ! G.has_incoming_edges(m) { // G.count_incoming_edges(m) == 0
                 S.insert(m.clone());
             }
         }
