@@ -1,4 +1,5 @@
 import io
+import sys
 
 class Graph(object):
     def __init__(self):
@@ -8,9 +9,9 @@ class Graph(object):
     def read(self, fname):
         with open(fname, "r") as fdata:
             for ln in fdata.readlines():
-                if ln[0] == "#":
+                if ln[0] == "#" or ln[0] == "%":
                     continue
-                pair = ln.strip().split(",")
+                pair = ln.strip().split(" ")
                 self.edges.append(pair)
                 self.nodes.add(pair[0])
                 self.nodes.add(pair[1])
@@ -29,8 +30,12 @@ class Graph(object):
         return result
 
 G = Graph()
-G.read("graph1.data.csv")
+print(sys.argv)
+fname = sys.argv[1] if len(sys.argv) > 1 else "graph1.data.csv"
+print("Reading file ", fname)
+G.read(fname)
 
+print("Collect_nodes_no_incoming")
 # https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
 L = []
 S = set([n for n in G.nodes if len(G.incoming_edges(n)) == 0])
