@@ -6,25 +6,7 @@ use std::collections::HashSet;
 use std::env;
 use std::fmt;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Node(String);
-//type Node = Box<String>;
-
-impl Node {
-    fn new(s: &str) -> Node {
-        Node(String::from(s))
-    }
-}
-
-impl Into<String> for Node {
-    fn into(self) -> String { self.0 }
-}
-impl fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
+// use crate::ts;
 use std::time::SystemTime;
 
 static mut sys_time: Option<SystemTime> = None;
@@ -46,17 +28,36 @@ fn ts() -> String {
 }
 
 
-#[derive(Debug, Clone, PartialEq)]
-struct Edge (Node, Node);
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+struct Node(String);
+//type Node = Box<String>;
 
-#[derive(Debug)]
-struct Graph {
-    nodes: HashSet<Node>,
-    edges: Vec<Edge>,
+impl Node {
+    fn new(s: &str) -> Node {
+        Node(String::from(s))
+    }
 }
 
-impl Graph {
-    fn read(fname: String) -> Graph {
+impl Into<String> for Node {
+    fn into(self) -> String { self.0 }
+}
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Edge<'a> (&'a Node, &'a Node);
+
+#[derive(Debug)]
+struct Graph<'a> {
+    nodes: HashSet<Node>,
+    edges: Vec<Edge<'a>>,
+}
+
+impl<'a> Graph<'a> {
+    fn read(fname: String) -> Graph<'a> {
         let mut nodes = HashSet::new();
         let mut edges = vec![];
 
@@ -69,7 +70,7 @@ impl Graph {
                 let pair: Vec<&str> = ln.split(|c| c == ',' || c == ' ').collect();
                 let from = Node::new(pair[0]);
                 let to = Node::new(pair[1]); // (pair.next().unwrap().to_string(), pair.next().unwrap().to_string());
-                let e = Edge(from.clone(), to.clone()); // Edge(&from, &to);
+                let e = Edge(&from, &to); // Edge(from.clone(), to.clone());
                 nodes.insert(from);
                 nodes.insert(to);
                 edges.push(e);
@@ -90,17 +91,17 @@ impl Graph {
         self.edges.iter().cloned().filter(criteria).collect()
     }
 
-    fn collect_nodes_without_incoming(&self) -> HashSet<Node> {
-        let nodes_with_incoming: HashSet<&Node> = self.edges.iter().map(|e| &e.1).collect();
-        self.nodes.iter().filter(|n| !nodes_with_incoming.contains(n)).cloned().collect()
+    fn collect_nodes_without_incoming(&self) -> HashSet<&Node> {
+        let nodes_with_incoming: HashSet<&Node> = self.edges.iter().map(|e| e.1).collect();
+        self.nodes.iter().filter(|n| !nodes_with_incoming.contains(n)).collect()
     }
 
     fn has_incoming_edges(&self, n: &Node) -> bool {
-        self.edges.iter().any(|e| e.1 == *n)
+        self.edges.iter().any(|e| e.1 == n)
     }
 
     fn count_incoming_edges(&self, n: &Node) -> usize {
-        self.edges.iter().filter(|e| e.1 == *n).count()
+        self.edges.iter().filter(|e| e.1 == n).count()
         // println!("incoming edges for " + n + ":" + str(result))
     }
 
@@ -124,7 +125,7 @@ fn main() {
 
     // O(n^2): G.nodes.iter().cloned().filter(|r| G.count_incoming_edges(r) == 0).collect();
     println!("{} collect_nodes_without_incoming: {} edges, {} nodes", ts(), G.edges.len(), G.nodes.len());
-    let mut S: HashSet<Node> = G.collect_nodes_without_incoming();
+    let mut S: HashSet<&Node> = G.collect_nodes_without_incoming();
 
     if S.len() < 100 {
         println!("Set of all nodes with no incoming edge: {:?}", S);
@@ -145,7 +146,7 @@ fn main() {
             // println!("{} count incomings to {}", ts(), m);
             // m has no other incoming edges?
             if ! G.has_incoming_edges(m) { // G.count_incoming_edges(m) == 0
-                S.insert(m.clone());
+                S.insert(*m); // .clone());
             }
         }
     }
