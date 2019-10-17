@@ -5,32 +5,14 @@ use std::path::Path;
 use std::collections::HashSet;
 use std::env;
 use std::fmt;
+use std::cell::RefCell;
 
-// use crate::ts;
-use std::time::SystemTime;
-
-static mut sys_time: Option<SystemTime> = None;
-
-fn ts() -> String {
-    use std::fmt::Write;
-    let mut secs: u128 = 0;
-
-    unsafe {
-    if sys_time.is_none() {
-        sys_time = Some(SystemTime::now());
-    }
-    secs = sys_time.unwrap().elapsed().unwrap().as_millis();
-    }
-    let mut result = String::new();
-    write!(&mut result, "{:06}", secs);
-        // "{:4}-{:02}-{:02} {:02}:{:02}:{:02}", t.year(), t.month(), t.day(), t.hour(), t.minute(), t.seconds());
-    result
-}
-
+mod tstamp;
+use tstamp::ts;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Node(String);
-//type Node = Box<String>;
+struct Node(RefCell<String>);
+//type Node = ;
 
 impl Node {
     fn new(s: &str) -> Node {
@@ -38,9 +20,6 @@ impl Node {
     }
 }
 
-impl Into<String> for Node {
-    fn into(self) -> String { self.0 }
-}
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -71,9 +50,9 @@ impl<'a> Graph<'a> {
                 let from = Node::new(pair[0]);
                 let to = Node::new(pair[1]); // (pair.next().unwrap().to_string(), pair.next().unwrap().to_string());
                 let e = Edge(&from, &to); // Edge(from.clone(), to.clone());
+                edges.push(e);
                 nodes.insert(from);
                 nodes.insert(to);
-                edges.push(e);
 
                 if i % 10000 == 0 {
                     println!("{} Read line {}", ts(), i)
