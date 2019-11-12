@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::env;
 use std::fmt;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 struct Node(String);
 //type Node = Box<String>;
 
@@ -19,7 +19,7 @@ impl Node {
 impl Into<String> for Node {
     fn into(self) -> String { self.0 }
 }
-impl fmt::Display for Node {
+impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -137,7 +137,7 @@ fn main() {
         S.remove(&n);
         L.push(n.clone());
 
-        println!("{} collect edges from {}", ts(), n);
+        println!("{} collect edges from {:?}", ts(), n);
         let from_n_to_m = G.collect_edges(|e: &Edge| e.0 == n);
         for e in from_n_to_m.iter() {
             let m = &e.1;

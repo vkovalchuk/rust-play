@@ -1,6 +1,13 @@
 import io
 import sys
 
+from datetime import datetime
+
+
+def ts():
+    return datetime.now().strftime("%m/%d/%Y %H:%M:%S") + "  "
+
+
 class Graph(object):
     def __init__(self):
         self.nodes = set()
@@ -32,14 +39,18 @@ class Graph(object):
 G = Graph()
 print(sys.argv)
 fname = sys.argv[1] if len(sys.argv) > 1 else "graph1.data.csv"
-print("Reading file ", fname)
+print(ts() + "Reading file ", fname)
 G.read(fname)
 
-print("Collect_nodes_no_incoming")
+print(ts() + "Collect_nodes_no_incoming")
 # https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
 L = []
 S = set([n for n in G.nodes if len(G.incoming_edges(n)) == 0])
-print("Set of all nodes with no incoming edge", S)
+if len(S) < 100:
+    print(ts() + "Set of all nodes with no incoming edge", S)
+else:
+    print(ts() + "Nodes with no incoming edge: " + str(len(S)))
+
 while S:
     n = S.pop()
     L.append(n)
@@ -53,7 +64,7 @@ while S:
             S.add(m)
 
 if len(G.edges) > 0:
-    print("ERROR: graph has at least one cycle")
+    print(ts() + "ERROR: graph has at least one cycle")
     print("Remains: ", G.edges)
 else:
-    print(L)
+    print(ts() + L)
