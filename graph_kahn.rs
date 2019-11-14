@@ -2,13 +2,14 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-use std::collections::HashSet;
+//use std::rc::Rc;
+use std::collections::{HashSet, HashMap};
 use std::env;
 use std::fmt;
 
+
 #[derive(Clone, Eq, PartialEq, Hash)]
 struct Node(String);
-//type Node = Box<String>;
 
 impl Node {
     fn new(s: &str) -> Node {
@@ -16,49 +17,34 @@ impl Node {
     }
 }
 
-impl Into<String> for Node {
-    fn into(self) -> String { self.0 }
-}
+// impl Into<String> for Node { fn into(self) -> String { self.0 } }
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-use std::time::SystemTime;
 
-static mut sys_time: Option<SystemTime> = None;
-
-fn ts() -> String {
-    use std::fmt::Write;
-    let mut secs: u128 = 0;
-
-    unsafe {
-    if sys_time.is_none() {
-        sys_time = Some(SystemTime::now());
-    }
-    secs = sys_time.unwrap().elapsed().unwrap().as_millis();
-    }
-    let mut result = String::new();
-    write!(&mut result, "{:06}", secs);
-        // "{:4}-{:02}-{:02} {:02}:{:02}:{:02}", t.year(), t.month(), t.day(), t.hour(), t.minute(), t.seconds());
-    result
-}
-
-
-#[derive(Debug, Clone, PartialEq)]
-struct Edge (Node, Node);
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+struct Edge (usize, usize);
 
 #[derive(Debug)]
 struct Graph {
-    nodes: HashSet<Node>,
-    edges: Vec<Edge>,
+    node_indices: HashMap<Node, usize>,
+    edges: HashSet<Edge>,
 }
 
+mod tstamp;
+use tstamp::ts;
+
 impl Graph {
+
     fn read(fname: String) -> Graph {
-        let mut nodes = HashSet::new();
-        let mut edges = vec![];
+        let mut node_indices = HashMap::new();
+        let mut edges = HashSet::new();
+        let mut result = Graph {
+            node_indices: node_indices, edges: edges,
+        };
 
         let fdata = File::open(&Path::new(&fname)).unwrap();
         let lines = io::BufReader::new(fdata).lines();
@@ -67,12 +53,10 @@ impl Graph {
             let mut ln = ln_iter.unwrap();
             if ! ln.starts_with('#') && ! ln.starts_with('%') {
                 let pair: Vec<&str> = ln.split(|c| c == ',' || c == ' ').collect();
-                let from = Node::new(pair[0]);
-                let to = Node::new(pair[1]); // (pair.next().unwrap().to_string(), pair.next().unwrap().to_string());
-                let e = Edge(from.clone(), to.clone()); // Edge(&from, &to);
-                nodes.insert(from);
-                nodes.insert(to);
-                edges.push(e);
+                let from = result.register_node(pair[0]);
+                let to = result.register_node(pair[1]);
+                let e = Edge(from, to);
+                result.edges.insert(e);
 
                 if i % 10000 == 0 {
                     println!("{} Read line {}", ts(), i)
@@ -80,8 +64,18 @@ impl Graph {
                 i += 1;
             }
         }
-        Graph {
-            nodes: nodes, edges: edges,
+        result
+    }
+
+    fn register_node(&mut self, n: &str) -> usize {
+        let node_key = Node::new(n);
+        match self.node_indices.get(&node_key) {
+            Some(&old_index) => old_index,
+            None => {
+                let new_index = self.node_indices.len();
+                self.node_indices.insert(node_key, new_index);
+                new_index
+           }
         }
     }
 
@@ -90,23 +84,21 @@ impl Graph {
         self.edges.iter().cloned().filter(criteria).collect()
     }
 
-    fn collect_nodes_without_incoming(&self) -> HashSet<Node> {
-        let nodes_with_incoming: HashSet<&Node> = self.edges.iter().map(|e| &e.1).collect();
-        self.nodes.iter().filter(|n| !nodes_with_incoming.contains(n)).cloned().collect()
+    fn collect_nodes_without_incoming(&self) -> HashSet<usize> {
+        let nodes_with_incoming: HashSet<usize> = self.edges.iter().map(|e| e.1).collect();
+        self.node_indices.iter().map(|(_node, idx)| *idx).filter(|idx| !nodes_with_incoming.contains(idx)).collect()
     }
 
-    fn has_incoming_edges(&self, n: &Node) -> bool {
-        self.edges.iter().any(|e| e.1 == *n)
+    fn has_incoming_edges(&self, n: usize) -> bool {
+        self.edges.iter().any(|e| e.1 == n)
     }
 
-    fn count_incoming_edges(&self, n: &Node) -> usize {
-        self.edges.iter().filter(|e| e.1 == *n).count()
-        // println!("incoming edges for " + n + ":" + str(result))
-    }
+    //fn count_incoming_edges(&self, n: &Node) -> usize {
+    //    self.edges.iter().filter(|e| e.1 == *n).count()
+    //}
 
     fn remove_edge(&mut self, e: &Edge) {
-        let index = self.edges.iter().position(|elt| elt == e).unwrap();
-        self.edges.remove(index);
+        self.edges.remove(e);
     }
 
 } // impl Graph
@@ -123,8 +115,8 @@ fn main() {
     // https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
 
     // O(n^2): G.nodes.iter().cloned().filter(|r| G.count_incoming_edges(r) == 0).collect();
-    println!("{} collect_nodes_without_incoming: {} edges, {} nodes", ts(), G.edges.len(), G.nodes.len());
-    let mut S: HashSet<Node> = G.collect_nodes_without_incoming();
+    println!("{} collect_nodes_without_incoming: {} edges, {} nodes", ts(), G.edges.len(), G.node_indices.len());
+    let mut S = G.collect_nodes_without_incoming();
 
     if S.len() < 100 {
         println!("Set of all nodes with no incoming edge: {:?}", S);
@@ -132,19 +124,18 @@ fn main() {
         println!("Nodes with no incoming edge: {}", S.len());
     }
 
-    let mut L: Vec<Node> = vec![];
+    let mut L: Vec<usize> = vec![];
     while let Some(n) = S.iter().cloned().next() {
         S.remove(&n);
         L.push(n.clone());
 
-        println!("{} collect edges from {:?}", ts(), n);
+        if (L.len() % 1000 == 0) {println!("{} collect edges from {:?}", ts(), n);}
         let from_n_to_m = G.collect_edges(|e: &Edge| e.0 == n);
         for e in from_n_to_m.iter() {
-            let m = &e.1;
+            let m = e.1; // &e.1;
             G.remove_edge(e);
-            // println!("{} count incomings to {}", ts(), m);
             // m has no other incoming edges?
-            if ! G.has_incoming_edges(m) { // G.count_incoming_edges(m) == 0
+            if ! G.has_incoming_edges(m) {
                 S.insert(m.clone());
             }
         }
