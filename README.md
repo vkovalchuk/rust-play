@@ -33,3 +33,5 @@ Nodes with no incoming edge: 4059
 2019-11-12 17:50:09.534 collect edges from 4957
 
 ```
+
+java -agentlib:hprof=cpu=samples -cp . graph_kahn out.citeseer
