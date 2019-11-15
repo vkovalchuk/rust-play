@@ -32,6 +32,8 @@ public static void main(String[] args) throws Exception {
 
         if (L.size() % 1000 == 0) System.out.format("%s collect edges from %s%n", ts(), n);
         List<Edge> from_n_to_m = G.collect_edges(e -> e.e[0] == n);
+        //Collection<Edge> b = from_n_to_m.size() > 20 ? new HashSet<>(from_n_to_m) : from_n_to_m;
+        //G.edges.removeAll(b);
         for (Edge e : from_n_to_m) {
             Node m = e.e[1];
             G.remove_edge(e);
@@ -113,7 +115,7 @@ static class Node {
     public String n;
     public Node(String n) { this.n = n; }
     @Override public String toString() { return n; }
-    @Override public int hashCode() { return n.hashCode(); }
+    @Override public final int hashCode() { return n.hashCode(); }
     @Override public boolean equals(Object o) { return n.equals(((Node)o).n); }
     public Integer numId() { return new Integer(n); }
 }
@@ -123,8 +125,11 @@ static class Edge {
     public Node e[];
     public Edge(Node from, Node to) { this.e = new Node[] {from, to}; }
     @Override public String toString() { return "(" + e[0] + "-" + e[1] + ")"; }
-    @Override public int hashCode() { return Objects.hash((Object[])e); }
-    @Override public boolean equals(Object o) { Node[] oe = ((Edge)o).e; return e[0] == oe[0] && e[1] == oe[1]; }
+    @Override public final int hashCode() { return e[0].hashCode() ^ e[1].hashCode(); } //  Objects.hash((Object[])e); }
+    @Override public final boolean equals(Object o) {
+        // Node[] oe = ((Edge)o).e;
+        return (this == o); // || (e[0] == oe[0] && e[1] == oe[1]);
+    }
 }
 
 static class Graph {
