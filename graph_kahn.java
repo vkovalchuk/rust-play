@@ -24,16 +24,18 @@ public static void main(String[] args) throws Exception {
         System.out.format("%s Nodes with no incoming edge: %d%n", ts(), S.size());
     }
 
-    ArrayList<Node> L = new ArrayList<>();
+    Collection<Node> L = new ArrayList<>();
     while (S.size() > 0) {
         Node n = S.iterator().next();
         S.remove(n);
         L.add(n);
 
         if (L.size() % 1000 == 0) System.out.format("%s collect edges from %s%n", ts(), n);
-        List<Node[]> from_n_to_m = G.collect_edges(e -> e[0].equals(n));
-        for (Node[] e : from_n_to_m) {
-            Node m = e[1];
+        List<Edge> from_n_to_m = G.collect_edges(e -> e.e[0] == n);
+        //Collection<Edge> b = from_n_to_m.size() > 20 ? new HashSet<>(from_n_to_m) : from_n_to_m;
+        //G.edges.removeAll(b);
+        for (Edge e : from_n_to_m) {
+            Node m = e.e[1];
             G.remove_edge(e);
             if (! G.has_incoming_edges(m)) {
                 S.add(m);
@@ -44,7 +46,7 @@ public static void main(String[] args) throws Exception {
     if (G.edges.size() > 0) {
         System.out.println("ERROR: graph has at least one cycle");
         if (G.edges.size() < 100) {
-          List<String> rest = G.edges.stream().map(e -> "(" + e[0] + "-" + e[1] + ")").collect(Collectors.toList());
+          List<String> rest = G.edges.stream().map(e -> e.toString()).collect(Collectors.toList());
           System.out.println("Remains: " + rest);
         } else {
           System.out.println("Remains " + G.edges.size() + " edges, " + G.nodes.size() + " nodes");
@@ -58,14 +60,14 @@ public static void main(String[] args) throws Exception {
 
 static List<Node> findCycle(Graph G) {
     Map<Node, List<Node>> map_repr = new HashMap<>();
-    for (Node[] e : G.edges) {
-        map_repr.computeIfAbsent(e[0], k -> new ArrayList<>()).add(e[1]);
+    for (Edge e : G.edges) {
+        map_repr.computeIfAbsent(e.e[0], k -> new ArrayList<>()).add(e.e[1]);
     }
     Graph.dump(map_repr, G.fname + "-cycle.yaml");
 
     List<Node> visited = new ArrayList<>();
-    for (Node[] e : G.edges) {
-        Node try_first = e[0];
+    for (Edge e : G.edges) {
+        Node try_first = e.e[0];
         if (findBacktrack(map_repr, visited, try_first)) {
             // skip initial elements of visited before "current"
             Node last = visited.get(visited.size()-1);
@@ -113,20 +115,32 @@ static class Node {
     public String n;
     public Node(String n) { this.n = n; }
     @Override public String toString() { return n; }
-    @Override public int hashCode() { return n.hashCode(); }
+    @Override public final int hashCode() { return n.hashCode(); }
     @Override public boolean equals(Object o) { return n.equals(((Node)o).n); }
     public Integer numId() { return new Integer(n); }
+}
+
+
+static class Edge {
+    public Node e[];
+    public Edge(Node from, Node to) { this.e = new Node[] {from, to}; }
+    @Override public String toString() { return "(" + e[0] + "-" + e[1] + ")"; }
+    @Override public final int hashCode() { return e[0].hashCode() ^ e[1].hashCode(); } //  Objects.hash((Object[])e); }
+    @Override public final boolean equals(Object o) {
+        // Node[] oe = ((Edge)o).e;
+        return (this == o); // || (e[0] == oe[0] && e[1] == oe[1]);
+    }
 }
 
 static class Graph {
 
     String fname;
-    HashSet<Node> nodes;
-    ArrayList<Node[]> edges;
+    Collection<Node> nodes;
+    Collection<Edge> edges;
 
     static Graph read(String fname) throws IOException {
-        HashSet<Node> nodes = new HashSet<>();
-        ArrayList<Node[]> edges = new ArrayList<>();
+        HashMap<String, Node> nodes = new HashMap<>();
+        Collection<Edge> edges = new ArrayList<>(); // HashSet<>();
 
         try(BufferedReader lines = new BufferedReader(new FileReader(fname))) {
             int i = 0;
@@ -136,18 +150,18 @@ static class Graph {
 
                 if (! ln.startsWith("#") && ! ln.startsWith("%")) {
                     String[] pair = ln.split("[, ]");
-                    Node from = new Node(pair[0]);
-                    Node to = new Node(pair[1]);
-                    if (from.equals(to)) {
+                    Node from = nodes.computeIfAbsent(pair[0], k -> new Node(k));
+                    Node to = nodes.computeIfAbsent(pair[1], k -> new Node(k));
+                    if (from == to) {
                         // System.out.format("%s Skipped edge-to-itself %s%n", ts(), from);
                         continue;
                     }
-                    Node[] e = new Node[] {from, to};
-                    nodes.add(from);
-                    nodes.add(to);
+                    //nodes.add(from);
+                    //nodes.add(to);
+                    Edge e = new Edge(from, to); // Node[]
                     edges.add(e);
 
-                    if (i % 10000 == 0) {
+                    if (i % 100_000 == 0) {
                         System.out.format("%s Read line %d%n", ts(), i);
                     }
                     i += 1;
@@ -156,26 +170,27 @@ static class Graph {
         }
         Graph result = new Graph();
         result.fname = fname;
-        result.nodes = nodes;
+        result.nodes = new ArrayList<>(nodes.values());
         result.edges = edges;
         return result;
     }
 
 
-    List<Node[]> collect_edges(Predicate<Node[]> criteria) {
-        return edges.stream().filter(criteria).collect(Collectors.toList());
+    List<Edge> collect_edges(Predicate<Edge> criteria) {
+        return edges.parallelStream().filter(criteria).collect(Collectors.toList());
     }
 
     Set<Node> collect_nodes_without_incoming() {
-        Set<Node> nodes_with_incoming = edges.stream().map(e -> e[1]).collect(Collectors.toSet());
-        return nodes.stream().filter(n -> !nodes_with_incoming.contains(n)).collect(Collectors.toSet());
+        // Called 1 time at the start
+        Set<Node> nodes_with_incoming = edges.parallelStream().map(e -> e.e[1]).collect(Collectors.toSet());
+        return nodes.parallelStream().filter(n -> !nodes_with_incoming.contains(n)).collect(Collectors.toSet());
     }
 
     boolean has_incoming_edges(Node n) {
-        return edges.stream().anyMatch(e -> e[1].equals(n));
+        return edges.parallelStream().anyMatch(e -> e.e[1] == n);
     }
 
-    void remove_edge(Node[] e) {
+    void remove_edge(Edge e) {
         edges.remove(e);
     }
 
