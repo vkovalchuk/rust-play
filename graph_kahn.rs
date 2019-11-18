@@ -95,8 +95,8 @@ impl Graph {
     }
 
 
-    fn collect_edges<P>(&self, criteria: P) -> Vec<Edge> where P: Fn(&Edge) -> bool {
-        self.edges.iter().cloned().filter(criteria).collect()
+    fn collect_edges<P>(&self, criteria: P) -> Vec<Edge> where P: Fn(&&Edge) -> bool {
+        self.edges.iter().filter(criteria).cloned().collect()
     }
 
     fn collect_nodes_without_incoming(&self) -> HashSet<usize> {
@@ -144,7 +144,7 @@ fn main() {
         L.push(n.clone());
 
         if (L.len() % 1000 == 0) {println!("{} collect edges from {:?}", ts(), n);}
-        let from_n_to_m = G.collect_edges(|e: &Edge| e.0 == n);
+        let from_n_to_m = G.collect_edges(|e: &&Edge| e.0 == n);
         for e in from_n_to_m.iter() {
             let m = e.1; // &e.1;
             G.remove_edge(e);
