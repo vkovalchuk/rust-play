@@ -5,7 +5,7 @@ Mounting this dir
 2. "$VBOX_MSI_INSTALL_PATH"/vboxmanage sharedfolder add default --name vkhome --hostpath "D:\Work\Future\Rust" --transient
  (see "$VBOX_MSI_INSTALL_PATH"/vboxmanage showvminfo default | grep "Host path:")
 3. docker-machine ssh default
-4. mkdir /home/docker/vkhome
+4. mkdir -p /home/docker/vkhome
    sudo mount -t vboxsf -o uid=1000,gid=50 vkhome /home/docker/vkhome
    exit
 5. docker run --rm -v "/home/docker/vkhome:/root/rust" -it rust /bin/bash
